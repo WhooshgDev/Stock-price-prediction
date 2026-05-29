@@ -2,14 +2,18 @@ import pandas as pd
 import numpy as np
 import torch
 import warnings
+import os
+import json
 
+from typing import Tuple
 from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer, GroupNormalizer
-from pytorch_forecasting.metrics import QuantileLoss
+from pytorch_forecasting.metrics import QuantileLoss, MAE, RMSE, MAPE
 from pytorch_forecasting.data import NaNLabelEncoder
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
-warnings.filterwarnings("ignore")
-import os
+
+warnings.filterwarnings("ignore", category=UserWarning, module="pytorch_forecasting")
+warnings.filterwarnings("ignore", category=FutureWarning)
 os.environ["PYTORCH_WARN_ONCE"] = "0"
 
 DATA_PATH = "World-Stock-Prices-Dataset.csv"
@@ -22,22 +26,40 @@ ATTENTION_HEADS = 4
 ENCODER_LENGTH = 120
 PREDICTION_LENGTH = 30
 
+REAL_FEATURES = [
+    "Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits",
+    "ret", "log_ret",
+    "ret_5d", "ret_21d", "ret_63d",
+    "vol_5d", "vol_21d", "vol_63d",
+    "volume_change", "volume_ma_ratio",
+    "excess_ret", "relative_volume", "excess_sector_ret",
+]
 
-def add_returns(df):
+
+def set_seed(seed: int = 42) -> None:
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def add_returns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values(["Ticker", "Date"]).reset_index(drop=True)
     df["ret"] = df.groupby("Ticker")["Close"].transform(lambda x: x.pct_change())
     df["log_ret"] = df.groupby("Ticker")["Close"].transform(lambda x: np.log(x / x.shift(1)))
     for w in [5, 21, 63]:
         df[f"ret_{w}d"] = df.groupby("Ticker")["Close"].transform(lambda x: x.pct_change(w))
-        df[f"vol_{w}d"] = df.groupby("Ticker")["log_ret"].transform(lambda x: x.rolling(w, min_periods=w).std())
+        df[f"vol_{w}d"] = df.groupby("Ticker")["log_ret"].transform(
+            lambda x, ww=w: x.rolling(ww, min_periods=1).std()
+        )
     df["volume_change"] = df.groupby("Ticker")["Volume"].transform(lambda x: x.pct_change())
     df["volume_ma_ratio"] = (
-        df.groupby("Ticker")["Volume"].transform(lambda x: x / x.rolling(21, min_periods=21).mean())
+        df.groupby("Ticker")["Volume"].transform(lambda x: x / x.rolling(21, min_periods=1).mean())
     )
     return df
 
 
-def add_market_context(df):
+def add_market_context(df: pd.DataFrame) -> pd.DataFrame:
     daily_med_ret = df.groupby("Date")["ret"].transform("median")
     df["excess_ret"] = df["ret"] - daily_med_ret
     daily_med_vol = df.groupby("Date")["Volume"].transform("median")
@@ -47,12 +69,11 @@ def add_market_context(df):
     return df
 
 
-def load_and_preprocess(path):
+def load_and_preprocess(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
     df["Date"] = pd.to_datetime(df["Date"], utc=True).dt.tz_localize(None)
     df = df.drop(columns=["Capital Gains", "Brand_Name"])
     df = df.sort_values(["Ticker", "Date"]).reset_index(drop=True)
-
     df = df.drop_duplicates(subset=["Ticker", "Date"])
 
     ticker_counts = df.groupby("Ticker").size()
@@ -75,19 +96,13 @@ def load_and_preprocess(path):
     df["Country"] = df["Country"].astype(str)
 
     df = df.replace([np.inf, -np.inf], np.nan)
-    real_cols = ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits",
-                 "ret_5d", "ret_21d", "ret_63d", "vol_21d", "vol_63d",
-                 "volume_change", "volume_ma_ratio", "excess_ret", "relative_volume", "excess_sector_ret"]
-    for c in real_cols:
+    for c in REAL_FEATURES:
         df[c] = df[c].fillna(0.0)
-    df = df.reset_index(drop=True)
-    df["time_idx"] = df.groupby("Ticker").cumcount().astype(int)
 
-    return df
+    return df.reset_index(drop=True)
 
 
-def create_datasets(df):
-    max_encoder = ENCODER_LENGTH
+def create_datasets(df: pd.DataFrame) -> Tuple[TimeSeriesDataSet, TimeSeriesDataSet]:
     training_cutoff = df["time_idx"].max() - PREDICTION_LENGTH
 
     training = TimeSeriesDataSet(
@@ -95,8 +110,8 @@ def create_datasets(df):
         time_idx="time_idx",
         target="Close",
         group_ids=["Ticker"],
-        min_encoder_length=max_encoder,
-        max_encoder_length=max_encoder,
+        min_encoder_length=ENCODER_LENGTH,
+        max_encoder_length=ENCODER_LENGTH,
         min_prediction_length=PREDICTION_LENGTH,
         max_prediction_length=PREDICTION_LENGTH,
         static_categoricals=["Industry_Tag", "Country"],
@@ -104,14 +119,7 @@ def create_datasets(df):
         time_varying_known_categoricals=["month", "day_of_week", "year", "day_of_month"],
         time_varying_known_reals=["time_idx"],
         time_varying_unknown_categoricals=[],
-        time_varying_unknown_reals=[
-            "Open", "High", "Low", "Close", "Volume",
-            "Dividends", "Stock Splits",
-            "ret_5d", "ret_21d", "ret_63d",
-            "vol_21d", "vol_63d",
-            "volume_change", "volume_ma_ratio",
-            "excess_ret", "relative_volume", "excess_sector_ret",
-        ],
+        time_varying_unknown_reals=REAL_FEATURES,
         target_normalizer=GroupNormalizer(groups=["Ticker"]),
         add_relative_time_idx=True,
         add_target_scales=True,
@@ -130,7 +138,7 @@ def create_datasets(df):
     return training, validation
 
 
-def create_model(training):
+def create_model(training: TimeSeriesDataSet) -> TemporalFusionTransformer:
     return TemporalFusionTransformer.from_dataset(
         training,
         hidden_size=HIDDEN_SIZE,
@@ -144,13 +152,69 @@ def create_model(training):
     )
 
 
-def main():
+def evaluate_model(
+    model: TemporalFusionTransformer,
+    validation: TimeSeriesDataSet,
+    df: pd.DataFrame,
+) -> pd.DataFrame:
+    val_dl = validation.to_dataloader(train=False, batch_size=BATCH_SIZE, num_workers=0)
+
+    raw_preds = model.predict(val_dl, mode="raw", return_x=True, n_jobs=1)
+
+    y_true = raw_preds[1]["decoder_target"].detach().cpu().numpy()
+    y_pred = raw_preds[0]["prediction"].detach().cpu().numpy()
+    y_pred_median = y_pred[:, :, 3]
+
+    mae = float(np.mean(np.abs(y_true - y_pred_median)))
+    rmse = float(np.sqrt(np.mean((y_true - y_pred_median) ** 2)))
+    mape = float(np.mean(np.abs((y_true - y_pred_median) / (y_true + 1e-8))) * 100)
+
+    metrics = {"MAE": mae, "RMSE": rmse, "MAPE": mape}
+    print(f"\n{'='*50}")
+    print("VALIDATION METRICS")
+    print(f"{'='*50}")
+    for k, v in metrics.items():
+        print(f"  {k:10s}: {v:.4f}")
+    print(f"{'='*50}\n")
+
+    with open("metrics.json", "w") as f:
+        json.dump(metrics, f, indent=2)
+    print("  → metrics.json saved")
+
+    index = raw_preds[1]["decoder_index"].detach().cpu().numpy().ravel()
+    groups = raw_preds[1]["decoder_groups"].detach().cpu().numpy()
+
+    ticker_map = {v: k for k, v in validation.categorical_encoders["Ticker"].classes_.items()}
+
+    rows = []
+    for i in range(len(y_pred_median)):
+        ticker = ticker_map.get(int(groups[i, 0]), "UNKNOWN")
+        for t in range(y_pred_median.shape[1]):
+            rows.append({
+                "Ticker": ticker,
+                "time_idx": int(index[i * y_pred_median.shape[1] + t]),
+                "Actual": float(y_true[i, t]),
+                "Predicted": float(y_pred_median[i, t]),
+            })
+
+    pred_df = pd.DataFrame(rows)
+    pred_df = pred_df.merge(df[["Ticker", "time_idx", "Date", "Industry_Tag", "Country"]],
+                            on=["Ticker", "time_idx"], how="left")
+    pred_df.to_csv("predictions.csv", index=False)
+    print("  → predictions.csv saved")
+
+    return pred_df
+
+
+def main() -> Tuple[TemporalFusionTransformer, TimeSeriesDataSet, TimeSeriesDataSet, pd.DataFrame]:
+    set_seed()
+
     print("[1/4] Loading and preprocessing data...")
     df = load_and_preprocess(DATA_PATH)
     nvda = df[df["Ticker"] == "NVDA"]
     print(f"     Total rows: {len(df)}, Tickers: {df['Ticker'].nunique()}")
     print(f"     NVDA rows: {len(nvda)}, NVDA date range: {nvda['Date'].min():%Y-%m-%d} to {nvda['Date'].max():%Y-%m-%d}")
-    print(f"     Features: {[c for c in df.columns if c not in ['Date','Ticker','Brand_Name']]}")
+    print(f"     Features: {REAL_FEATURES}")
 
     print("[2/4] Creating TimeSeriesDataSet...")
     training, validation = create_datasets(df)
@@ -178,10 +242,16 @@ def main():
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=val_dl)
 
     print(f"     Best model: {checkpoint.best_model_path}")
+    trainer.save_checkpoint("tft_final.ckpt")
+    print("     → tft_final.ckpt saved")
+
+    print("\n[5/5] Evaluating on validation set...")
+    pred_df = evaluate_model(model, validation, df)
+
     print("     Done!")
 
-    return model, training, validation
+    return model, training, validation, pred_df
 
 
 if __name__ == "__main__":
-    model, training, validation = main()
+    model, training, validation, pred_df = main()

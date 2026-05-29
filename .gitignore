@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+.lr_find_*.ckpt
+lightning_logs/
+*.png
+*.csv
+.DS_Store
