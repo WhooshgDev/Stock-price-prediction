@@ -66,10 +66,12 @@ def add_event_spans(ax: Axes, alpha: float = 0.15) -> None:
     if ylim == (0.0, 1.0):
         ax.autoscale_view()
         ylim = ax.get_ylim()
-    for name, start, end, color in EVENTS:
+    yrange = ylim[1] - ylim[0]
+    for i, (name, start, end, color) in enumerate(EVENTS):
         ax.axvspan(pd.Timestamp(start), pd.Timestamp(end), alpha=alpha, color=color, zorder=2)
         mid = pd.Timestamp(start) + (pd.Timestamp(end) - pd.Timestamp(start)) / 2
-        ax.text(mid, ylim[1], name, ha="center", va="top",
+        y_pos = ylim[1] - (yrange * 0.05 * (i % 2))
+        ax.text(mid, y_pos, name, ha="center", va="top",
                 fontsize=7, color=color, fontweight="bold",
                 bbox=dict(boxstyle="round,pad=0.2", facecolor="#1a1a1a", edgecolor=color, alpha=0.8))
 
