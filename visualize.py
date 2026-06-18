@@ -47,7 +47,7 @@ FOCUS_TICKERS = {
     "Healthcare": ["UNH", "JNJ", "PFE", "ABBV"],
 }
 
-HIGHLIGHT_TICKER = "NVDA"
+HIGHLIGHT_TICKER = "AAPL"
 HIGHLIGHT_LW = 2.5
 HIGHLIGHT_ALPHA = 1.0
 DEFAULT_LW = 0.8
@@ -102,33 +102,33 @@ def _format_xaxis(ax: Axes, loc_years: int = 3) -> None:
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
 
 
-# ─── 1. NVDA full history ───────────────────────────────────────────────
-def plot_nvda_history(df: pd.DataFrame) -> None:
-    nvda = df[df["Ticker"] == "NVDA"].copy()
+# ─── 1. AAPL full history ──────────────────────────────────────────────
+def plot_aapl_history(df: pd.DataFrame) -> None:
+    aapl = df[df["Ticker"] == "AAPL"].copy()
     fig, axes = plt.subplots(3, 1, figsize=(16, 10), sharex=True)
     ax = axes[0]
-    ax.plot(nvda["Date"], nvda["Close"], color="#42a5f5", linewidth=1)
-    ax.fill_between(nvda["Date"], nvda["Close"], alpha=0.1, color="#42a5f5")
+    ax.plot(aapl["Date"], aapl["Close"], color="#42a5f5", linewidth=1)
+    ax.fill_between(aapl["Date"], aapl["Close"], alpha=0.1, color="#42a5f5")
     ax.set_ylabel("Price ($)")
-    ax.set_title("NVDA — Full History (2000–2025)", fontsize=14, fontweight="bold")
+    ax.set_title("AAPL — Full History (2000–2025)", fontsize=14, fontweight="bold")
     add_event_spans(ax)
     ax.legend(["Close"])
 
     ax = axes[1]
-    cumret = (1 + nvda["ret"]).cumprod()
-    ax.plot(nvda["Date"], cumret, color="#66bb6a", linewidth=1)
-    ax.fill_between(nvda["Date"], cumret, alpha=0.1, color="#66bb6a")
+    cumret = (1 + aapl["ret"]).cumprod()
+    ax.plot(aapl["Date"], cumret, color="#66bb6a", linewidth=1)
+    ax.fill_between(aapl["Date"], cumret, alpha=0.1, color="#66bb6a")
     ax.set_ylabel("Cumulative Return")
-    ax.set_title("NVDA — Cumulative Return (log scale)", fontsize=14, fontweight="bold")
+    ax.set_title("AAPL — Cumulative Return (log scale)", fontsize=14, fontweight="bold")
     ax.set_yscale("log")
     add_event_spans(ax)
 
     ax = axes[2]
-    vol = nvda["ret"].rolling(21).std() * np.sqrt(252) * 100
-    ax.plot(nvda["Date"], vol, color="#ffa726", linewidth=0.8)
-    ax.fill_between(nvda["Date"], vol, alpha=0.15, color="#ffa726")
+    vol = aapl["ret"].rolling(21).std() * np.sqrt(252) * 100
+    ax.plot(aapl["Date"], vol, color="#ffa726", linewidth=0.8)
+    ax.fill_between(aapl["Date"], vol, alpha=0.15, color="#ffa726")
     ax.set_ylabel("Volatility (%)")
-    ax.set_title("NVDA — 21-Day Rolling Volatility (annualized)", fontsize=14, fontweight="bold")
+    ax.set_title("AAPL — 21-Day Rolling Volatility (annualized)", fontsize=14, fontweight="bold")
     add_event_spans(ax)
     med_vol = vol.median()
     ax.axhline(y=med_vol, color="#888", linestyle="--", linewidth=0.5, label=f"Median: {med_vol:.1f}%")
@@ -139,9 +139,9 @@ def plot_nvda_history(df: pd.DataFrame) -> None:
         a.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("viz_01_nvda_history.png", dpi=150, bbox_inches="tight")
+    plt.savefig("viz_01_aapl_history.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_01_nvda_history.png")
+    print("  [OK] viz_01_aapl_history.png")
 
 
 # ─── 2. Sector performance through events ───────────────────────────────
@@ -254,7 +254,7 @@ def plot_correlation_heatmaps(df: pd.DataFrame) -> None:
     print("  [OK] viz_04_correlation_heatmaps.png")
 
 
-# ─── 5. NVDA vs peers during COVID crash (Feb-Mar 2020) ─────────────────
+# ─── 5. Tech stocks during COVID crash (Feb-Mar 2020) ────────────────────
 def plot_covid_crash(df: pd.DataFrame) -> None:
     tech_tickers = ["NVDA", "AMD", "MSFT", "AAPL", "GOOGL", "AMZN",
                     "CRM", "CSCO", "INTC", "NFLX"]
@@ -342,33 +342,34 @@ def plot_ai_explosion(df: pd.DataFrame) -> None:
 
 # ─── 7. Volume & volatility signatures during crashes ───────────────────
 def plot_volatility_signatures(df: pd.DataFrame) -> None:
-    nvda = df[df["Ticker"] == "NVDA"].copy()
-    nvda["vol_21d"] = nvda["ret"].rolling(21).std() * np.sqrt(252) * 100
-    nvda["volume_ma"] = nvda["Volume"].rolling(21).mean()
-    nvda["rel_vol"] = nvda["Volume"] / nvda["volume_ma"]
+    ticker = HIGHLIGHT_TICKER
+    t = df[df["Ticker"] == ticker].copy()
+    t["vol_21d"] = t["ret"].rolling(21).std() * np.sqrt(252) * 100
+    t["volume_ma"] = t["Volume"].rolling(21).mean()
+    t["rel_vol"] = t["Volume"] / t["volume_ma"]
 
     fig, axes = plt.subplots(3, 1, figsize=(16, 10), sharex=True)
 
     ax = axes[0]
-    ax.plot(nvda["Date"], nvda["Close"], color="#42a5f5", linewidth=1)
-    ax.fill_between(nvda["Date"], nvda["Close"], alpha=0.1, color="#42a5f5")
+    ax.plot(t["Date"], t["Close"], color="#42a5f5", linewidth=1)
+    ax.fill_between(t["Date"], t["Close"], alpha=0.1, color="#42a5f5")
     ax.set_ylabel("Price ($)")
-    ax.set_title("NVDA — Volatility & Volume Signatures During Market Events", fontsize=14, fontweight="bold")
+    ax.set_title(f"{ticker} — Volatility & Volume Signatures During Market Events", fontsize=14, fontweight="bold")
     add_event_spans(ax, alpha=0.1)
 
     ax = axes[1]
-    ax.plot(nvda["Date"], nvda["vol_21d"], color="#ffa726", linewidth=0.8)
-    ax.fill_between(nvda["Date"], nvda["vol_21d"], alpha=0.2, color="#ffa726")
+    ax.plot(t["Date"], t["vol_21d"], color="#ffa726", linewidth=0.8)
+    ax.fill_between(t["Date"], t["vol_21d"], alpha=0.2, color="#ffa726")
     ax.set_ylabel("Volatility (%)")
-    threshold = nvda["vol_21d"].quantile(0.9)
+    threshold = t["vol_21d"].quantile(0.9)
     ax.axhline(y=threshold, color="#ef5350", linestyle="--", linewidth=0.5,
                label=f"90th pctile: {threshold:.0f}%")
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
 
     ax = axes[2]
-    ax.plot(nvda["Date"], nvda["rel_vol"], color="#ab47bc", linewidth=0.8)
-    ax.fill_between(nvda["Date"], nvda["rel_vol"], alpha=0.2, color="#ab47bc")
+    ax.plot(t["Date"], t["rel_vol"], color="#ab47bc", linewidth=0.8)
+    ax.fill_between(t["Date"], t["rel_vol"], alpha=0.2, color="#ab47bc")
     ax.set_ylabel("Relative Volume")
     ax.axhline(y=1.0, color="#555", linestyle="--", linewidth=0.5)
     ax.axhline(y=2.0, color="#ef5350", linestyle="--", linewidth=0.5,
@@ -387,7 +388,7 @@ def plot_volatility_signatures(df: pd.DataFrame) -> None:
 
 # ─── 8. Summary statistics table ────────────────────────────────────────
 def plot_summary_table(df: pd.DataFrame) -> None:
-    top_tickers = ["NVDA", "AAPL", "AMZN", "MSFT", "GOOGL", "AMD", "META",
+    top_tickers = ["AAPL", "NVDA", "AMZN", "MSFT", "GOOGL", "AMD", "META",
                    "NFLX", "DIS", "COST", "HD", "CSCO", "CRM", "SPOT", "ZM", "UBER"]
     top_tickers = [t for t in top_tickers if t in df["Ticker"].unique()]
 
@@ -425,8 +426,8 @@ def plot_summary_table(df: pd.DataFrame) -> None:
             cell.set_text_props(weight="bold", color="#fff")
             cell.set_facecolor("#2a2a2a")
         elif key[1] == 0:
-            is_nvda = cell.get_text().get_text() == "NVDA"
-            cell.set_text_props(weight="bold", color="#42a5f5" if is_nvda else "#ccc")
+            is_hl = cell.get_text().get_text() == HIGHLIGHT_TICKER
+            cell.set_text_props(weight="bold", color="#42a5f5" if is_hl else "#ccc")
             cell.set_facecolor("#1f1f1f")
         else:
             cell.set_facecolor("#1a1a1a")
@@ -471,7 +472,7 @@ def plot_pred_vs_actual(pred_df: pd.DataFrame) -> None:
 # ─── 10. Per-ticker MAPE bar chart ──────────────────────────────────────
 def plot_ticker_mape(tm_df: pd.DataFrame, top_n: int = 30) -> None:
     tm = tm_df.sort_values("MAPE", ascending=True).head(top_n)
-    colors = ["#42a5f5" if t != "NVDA" else "#ffa726" for t in tm["Ticker"]]
+    colors = ["#42a5f5" if t != HIGHLIGHT_TICKER else "#ffa726" for t in tm["Ticker"]]
 
     fig, ax = plt.subplots(figsize=(12, 8))
     bars = ax.barh(range(len(tm)), tm["MAPE"].values, color=colors, edgecolor="none")
@@ -523,7 +524,7 @@ def plot_error_distribution(pred_df: pd.DataFrame) -> None:
 
 # ─── 12. Prediction time series for key tickers ─────────────────────────
 def plot_prediction_timeseries(pred_df: pd.DataFrame, df: pd.DataFrame) -> None:
-    key_tickers = ["NVDA", "AAPL", "MSFT", "GOOGL"]
+    key_tickers = ["AAPL", "MSFT", "GOOGL", "AMZN"]
     fig, axes = plt.subplots(len(key_tickers), 1, figsize=(16, 12), sharex=True)
 
     for idx, ticker in enumerate(key_tickers):
@@ -566,7 +567,7 @@ if __name__ == "__main__":
     print(f"  {len(pred_df)} prediction rows, {tm_df['Ticker'].nunique()} tickers")
 
     print("\nGenerating visualizations...")
-    plot_nvda_history(df)
+    plot_aapl_history(df)
     plot_sector_performance(df)
     plot_event_closeup(df)
     plot_correlation_heatmaps(df)

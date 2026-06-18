@@ -211,9 +211,9 @@ def main() -> Tuple[TemporalFusionTransformer, TimeSeriesDataSet, TimeSeriesData
 
     print("[1/4] Loading and preprocessing data...")
     df = load_and_preprocess(DATA_PATH)
-    nvda = df[df["Ticker"] == "NVDA"]
+    aapl = df[df["Ticker"] == "AAPL"]
     print(f"     Total rows: {len(df)}, Tickers: {df['Ticker'].nunique()}")
-    print(f"     NVDA rows: {len(nvda)}, NVDA date range: {nvda['Date'].min():%Y-%m-%d} to {nvda['Date'].max():%Y-%m-%d}")
+    print(f"     AAPL rows: {len(aapl)}, AAPL date range: {aapl['Date'].min():%Y-%m-%d} to {aapl['Date'].max():%Y-%m-%d}")
     print(f"     Features: {REAL_FEATURES}")
 
     print("[2/4] Creating TimeSeriesDataSet...")
