@@ -29,8 +29,9 @@ plt.rcParams.update({
 DATA_PATH = "World-Stock-Prices-Dataset.csv"
 
 EVENTS: List[Tuple[str, str, str, str]] = [
-    ("Dot-com Crash", "2000-03-10", "2002-10-09", "#ff6b6b"),
+    ("Dot-com Crash", "2000-03-10", "2001-09-10", "#ff6b6b"),
     ("9/11 Attacks", "2001-09-11", "2001-09-21", "#ff4444"),
+    ("Dot-com Aftermath", "2001-09-22", "2002-10-09", "#e57373"),
     ("Financial Crisis", "2007-12-01", "2009-06-30", "#ffa726"),
     ("COVID Crash", "2020-02-19", "2020-03-23", "#ef5350"),
     ("COVID Recovery", "2020-03-24", "2021-12-31", "#66bb6a"),
