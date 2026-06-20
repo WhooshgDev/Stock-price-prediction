@@ -5,4 +5,5 @@ __pycache__/
 lightning_logs/
 *.png
 *.csv
+!World-Stock-Prices-Dataset.csv
 .DS_Store

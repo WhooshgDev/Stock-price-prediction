@@ -1,10 +1,8 @@
 {
-  "total_trades": 957,
-  "win_rate": 50.36572622779519,
-  "total_return_pct": 23.78155356210858,
-  "sharpe_ratio": 0.34873551303942385,
-  "max_drawdown_pct": -27.607977787307636,
-  "avg_win_pct": 1.1461268996282143,
-  "avg_loss_pct": -1.093112646300595,
-  "profit_factor": 1.0484984356434215
+  "Total_Trades": 165,
+  "Win_Rate_Pct": 64.85,
+  "Avg_Trade_Return_Pct": 0.6886,
+  "Total_Return_Pct": 113.6146,
+  "Sharpe_Ratio": 5.7563,
+  "Max_Drawdown_Pct": -18.9788
 }

@@ -1,39 +1,54 @@
+import logging
+import os
+
+logging.getLogger("torch.utils.flop_counter").setLevel(logging.ERROR)
+os.environ["PYTORCH_WARN_ONCE"] = "0"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
+import warnings
+import json
 import pandas as pd
 import numpy as np
 import torch
-import warnings
-import os
-import json
 
 from typing import Tuple
 from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer, GroupNormalizer
-from pytorch_forecasting.metrics import QuantileLoss, MAE, RMSE, MAPE
+from pytorch_forecasting.metrics import QuantileLoss
 from pytorch_forecasting.data import NaNLabelEncoder
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pytorch_forecasting")
-warnings.filterwarnings("ignore", category=FutureWarning)
-os.environ["PYTORCH_WARN_ONCE"] = "0"
+warnings.filterwarnings("ignore", category=FutureWarning, module="lightning")
+
+torch.set_float32_matmul_precision("high")
+
+
+def _worker_init_fn(worker_id: int) -> None:
+    import logging
+    logging.getLogger("torch.utils.flop_counter").setLevel(logging.ERROR)
+
 
 DATA_PATH = "World-Stock-Prices-Dataset.csv"
 MAX_EPOCHS = 30
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 HIDDEN_SIZE = 128
 LSTM_LAYERS = 2
-DROPOUT = 0.15
+DROPOUT = 0.30
 ATTENTION_HEADS = 4
-ENCODER_LENGTH = 120
-PREDICTION_LENGTH = 30
+ENCODER_LENGTH = 60
+PREDICTION_LENGTH = 5
 
 REAL_FEATURES = [
     "Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits",
-    "ret", "log_ret",
+    "log_ret",
     "ret_5d", "ret_21d", "ret_63d",
     "vol_5d", "vol_21d", "vol_63d",
     "volume_change", "volume_ma_ratio",
     "excess_ret", "relative_volume", "excess_sector_ret",
 ]
+
+TARGET = "ret"
 
 
 def set_seed(seed: int = 42) -> None:
@@ -96,7 +111,7 @@ def load_and_preprocess(path: str) -> pd.DataFrame:
     df["Country"] = df["Country"].astype(str)
 
     df = df.replace([np.inf, -np.inf], np.nan)
-    for c in REAL_FEATURES:
+    for c in REAL_FEATURES + [TARGET]:
         df[c] = df[c].fillna(0.0)
 
     return df.reset_index(drop=True)
@@ -108,7 +123,7 @@ def create_datasets(df: pd.DataFrame) -> Tuple[TimeSeriesDataSet, TimeSeriesData
     training = TimeSeriesDataSet(
         df[df["time_idx"] <= training_cutoff],
         time_idx="time_idx",
-        target="Close",
+        target=TARGET,
         group_ids=["Ticker"],
         min_encoder_length=ENCODER_LENGTH,
         max_encoder_length=ENCODER_LENGTH,
@@ -149,78 +164,110 @@ def create_model(training: TimeSeriesDataSet) -> TemporalFusionTransformer:
         output_size=7,
         loss=QuantileLoss(),
         reduce_on_plateau_patience=4,
+        weight_decay=1e-5,
+        mask_bias=-1e4,
     )
 
 
 def evaluate_model(
     model: TemporalFusionTransformer,
     validation: TimeSeriesDataSet,
-    df: pd.DataFrame,
 ) -> pd.DataFrame:
-    val_dl = validation.to_dataloader(train=False, batch_size=BATCH_SIZE, num_workers=0)
+    val_dl = validation.to_dataloader(train=False, batch_size=BATCH_SIZE, num_workers=11, persistent_workers=True, worker_init_fn=_worker_init_fn)
 
     raw_preds = model.predict(val_dl, mode="raw", return_x=True, n_jobs=1)
 
-    y_true = raw_preds[1]["decoder_target"].detach().cpu().numpy()
-    y_pred = raw_preds[0]["prediction"].detach().cpu().numpy()
-    y_pred_median = y_pred[:, :, 3]
+    out = raw_preds[0]
+    x = raw_preds[1]
 
-    mae = float(np.mean(np.abs(y_true - y_pred_median)))
-    rmse = float(np.sqrt(np.mean((y_true - y_pred_median) ** 2)))
-    mape = float(np.mean(np.abs((y_true - y_pred_median) / (y_true + 1e-8))) * 100)
+    y_true = x["decoder_target"].detach().cpu().numpy()
+    y_pred_all = out.prediction.detach().cpu().numpy()
+    y_pred = y_pred_all[:, :, 3]
+    groups = x["groups"].detach().cpu().numpy()
 
-    metrics = {"MAE": mae, "RMSE": rmse, "MAPE": mape}
+    mae = float(np.mean(np.abs(y_true - y_pred)))
+    rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+
+    actual_sign = np.sign(y_true)
+    pred_sign = np.sign(y_pred)
+    directional_acc = float(np.mean(actual_sign == pred_sign) * 100)
+
+    hit_rate_at_mean = float(np.mean(
+        (y_true * y_pred) > 0
+    ) * 100)
+
+    metrics = {
+        "MAE": mae,
+        "RMSE": rmse,
+        "Directional_Accuracy": directional_acc,
+    }
     print(f"\n{'='*50}")
-    print("VALIDATION METRICS")
+    print("VALIDATION METRICS (returns)")
     print(f"{'='*50}")
     for k, v in metrics.items():
-        print(f"  {k:10s}: {v:.4f}")
+        print(f"  {k:25s}: {v:.4f}")
     print(f"{'='*50}\n")
 
     with open("metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
-    print("  → metrics.json saved")
+    print("  metrics.json saved")
 
-    index = raw_preds[1]["decoder_index"].detach().cpu().numpy().ravel()
-    groups = raw_preds[1]["decoder_groups"].detach().cpu().numpy()
-
-    ticker_map = {v: k for k, v in validation.categorical_encoders["Ticker"].classes_.items()}
+    ticker_encoder = validation._categorical_encoders["__group_id__Ticker"]
+    ticker_map = {i: name for name, i in ticker_encoder.classes_.items()}
 
     rows = []
-    for i in range(len(y_pred_median)):
+    for i in range(len(y_pred)):
         ticker = ticker_map.get(int(groups[i, 0]), "UNKNOWN")
-        for t in range(y_pred_median.shape[1]):
+        for t in range(y_pred.shape[1]):
             rows.append({
                 "Ticker": ticker,
-                "time_idx": int(index[i * y_pred_median.shape[1] + t]),
+                "sample_idx": i,
+                "step": t,
                 "Actual": float(y_true[i, t]),
-                "Predicted": float(y_pred_median[i, t]),
+                "Predicted": float(y_pred[i, t]),
             })
 
     pred_df = pd.DataFrame(rows)
-    pred_df = pred_df.merge(df[["Ticker", "time_idx", "Date", "Industry_Tag", "Country"]],
-                            on=["Ticker", "time_idx"], how="left")
     pred_df.to_csv("predictions.csv", index=False)
-    print("  → predictions.csv saved")
+    print(f"  predictions.csv saved ({len(pred_df)} rows)")
+
+    print("\nPer-ticker directional accuracy:")
+    ticker_metrics = []
+    for ticker in pred_df["Ticker"].unique():
+        sub = pred_df[pred_df["Ticker"] == ticker]
+        a, p = sub["Actual"].values, sub["Predicted"].values
+        acc = np.mean(np.sign(a) == np.sign(p)) * 100
+        ticker_metrics.append({
+            "Ticker": ticker,
+            "Directional_Accuracy": round(acc, 2),
+        })
+
+    tm_df = pd.DataFrame(ticker_metrics).sort_values("Directional_Accuracy", ascending=False)
+    tm_df.to_csv("ticker_metrics.csv", index=False)
+    print(f"  ticker_metrics.csv saved")
+
+    print("\nTop 5 (by directional accuracy):")
+    print(tm_df.head(5).to_string(index=False))
+    print("\nBottom 5:")
+    print(tm_df.tail(5).to_string(index=False))
 
     return pred_df
 
 
-def main() -> Tuple[TemporalFusionTransformer, TimeSeriesDataSet, TimeSeriesDataSet, pd.DataFrame]:
+def main():
     set_seed()
 
     print("[1/4] Loading and preprocessing data...")
     df = load_and_preprocess(DATA_PATH)
-    aapl = df[df["Ticker"] == "AAPL"]
     print(f"     Total rows: {len(df)}, Tickers: {df['Ticker'].nunique()}")
-    print(f"     AAPL rows: {len(aapl)}, AAPL date range: {aapl['Date'].min():%Y-%m-%d} to {aapl['Date'].max():%Y-%m-%d}")
+    print(f"     Target: {TARGET} (daily return)")
     print(f"     Features: {REAL_FEATURES}")
 
     print("[2/4] Creating TimeSeriesDataSet...")
     training, validation = create_datasets(df)
 
-    train_dl = training.to_dataloader(train=True, batch_size=BATCH_SIZE, num_workers=0)
-    val_dl = validation.to_dataloader(train=False, batch_size=BATCH_SIZE, num_workers=0)
+    train_dl = training.to_dataloader(train=True, batch_size=BATCH_SIZE, num_workers=11, persistent_workers=True, worker_init_fn=_worker_init_fn)
+    val_dl = validation.to_dataloader(train=False, batch_size=BATCH_SIZE, num_workers=11, persistent_workers=True, worker_init_fn=_worker_init_fn)
 
     print("[3/4] Creating TFT model...")
     model = create_model(training)
@@ -228,28 +275,33 @@ def main() -> Tuple[TemporalFusionTransformer, TimeSeriesDataSet, TimeSeriesData
 
     early_stop = EarlyStopping(monitor="val_loss", patience=10, mode="min")
     lr_logger = LearningRateMonitor()
-    checkpoint = ModelCheckpoint(monitor="val_loss", mode="min", save_top_k=1, filename="tft-{epoch:02d}-{val_loss:.4f}")
+    checkpoint = ModelCheckpoint(monitor="val_loss", mode="min", save_top_k=1, save_last=True, filename="tft-{epoch:02d}-{val_loss:.4f}")
+
+    last_ckpt = "tft_last.ckpt" if os.path.exists("tft_last.ckpt") else None
 
     trainer = Trainer(
         max_epochs=MAX_EPOCHS,
         accelerator="auto",
         gradient_clip_val=0.1,
+        precision="16-mixed",
         callbacks=[early_stop, lr_logger, checkpoint],
         enable_progress_bar=True,
     )
 
+    if last_ckpt:
+        print(f"     Resuming from {last_ckpt}")
+
     print("[4/4] Training...")
-    trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=val_dl)
+    trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=val_dl, ckpt_path=last_ckpt)
 
     print(f"     Best model: {checkpoint.best_model_path}")
-    trainer.save_checkpoint("tft_final.ckpt")
-    print("     → tft_final.ckpt saved")
+    trainer.save_checkpoint("tft_last.ckpt")
+    print("     tft_last.ckpt saved (for resume)")
 
     print("\n[5/5] Evaluating on validation set...")
-    pred_df = evaluate_model(model, validation, df)
+    pred_df = evaluate_model(model, validation)
 
     print("     Done!")
-
     return model, training, validation, pred_df
 
 
