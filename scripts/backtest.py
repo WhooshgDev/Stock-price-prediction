@@ -3,8 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import warnings
 import json
+import os
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+OUTPUT_DIR = "outputs"
 
 plt.rcParams.update({
     "figure.facecolor": "#0f0f0f",
@@ -93,14 +96,15 @@ def plot_equity_curve(trades: pd.DataFrame) -> None:
             ax.text(val * 100 - 0.1, bar.get_y() + bar.get_height() / 2,
                     f"{val * 100:.2f}%", va="center", ha="right", fontsize=8, color="#f44336")
     plt.tight_layout()
-    plt.savefig("backtest_equity.png", dpi=150)
+    plt.savefig(f"{OUTPUT_DIR}/backtest_equity.png", dpi=150)
     plt.close()
-    print("  backtest_equity.png saved")
+    print(f"  {OUTPUT_DIR}/backtest_equity.png saved")
 
 
 def main():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     print("[1/2] Loading predictions...")
-    pred_df = pd.read_csv("predictions.csv")
+    pred_df = pd.read_csv(f"{OUTPUT_DIR}/predictions.csv")
     print(f"     {len(pred_df)} rows, {pred_df['Ticker'].nunique()} tickers")
 
     print("[2/2] Running backtest...")
@@ -114,12 +118,12 @@ def main():
         print(f"  {k:25s}: {v}")
     print(f"{'='*50}\n")
 
-    with open("backtest_metrics.json", "w") as f:
+    with open(f"{OUTPUT_DIR}/backtest_metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
-    print("  backtest_metrics.json saved")
+    print(f"  {OUTPUT_DIR}/backtest_metrics.json saved")
 
-    trades.to_csv("backtest_trades.csv", index=False)
-    print(f"  backtest_trades.csv saved ({len(trades)} rows)")
+    trades.to_csv(f"{OUTPUT_DIR}/backtest_trades.csv", index=False)
+    print(f"  {OUTPUT_DIR}/backtest_trades.csv saved ({len(trades)} rows)")
 
     plot_equity_curve(trades)
 
@@ -131,7 +135,7 @@ def main():
     ).sort_values("Total_Return", ascending=False)
     summary["Total_Return"] = summary["Total_Return"] * 100
     summary = summary.round(2)
-    summary.to_csv("backtest_summary.csv")
+    summary.to_csv(f"{OUTPUT_DIR}/backtest_summary.csv")
     print(summary.to_string())
     print("\nDone!")
 

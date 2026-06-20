@@ -3,7 +3,8 @@ __pycache__/
 *.pyo
 .lr_find_*.ckpt
 lightning_logs/
+outputs/
 *.png
 *.csv
-!World-Stock-Prices-Dataset.csv
+!data/World-Stock-Prices-Dataset.csv
 .DS_Store

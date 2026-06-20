@@ -26,7 +26,8 @@ plt.rcParams.update({
     "grid.alpha": 0.5,
 })
 
-DATA_PATH = "World-Stock-Prices-Dataset.csv"
+OUTPUT_DIR = "outputs"
+DATA_PATH = "data/World-Stock-Prices-Dataset.csv"
 
 EVENTS: List[Tuple[str, str, str, str]] = [
     ("Dot-com Crash", "2000-03-10", "2001-09-10", "#ff6b6b"),
@@ -154,9 +155,9 @@ def plot_aapl_history(df: pd.DataFrame) -> None:
         a.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("viz_01_aapl_history.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_01_aapl_history.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_01_aapl_history.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_01_aapl_history.png")
 
 
 # ─── 2. Sector performance through events ───────────────────────────────
@@ -194,9 +195,9 @@ def plot_sector_performance(df: pd.DataFrame) -> None:
         _format_xaxis(a)
 
     plt.tight_layout()
-    plt.savefig("viz_02_sector_performance.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_02_sector_performance.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_02_sector_performance.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_02_sector_performance.png")
 
 
 # ─── 3. Tech tickers around key events ──────────────────────────────────
@@ -223,9 +224,9 @@ def plot_event_closeup(df: pd.DataFrame) -> None:
         ax.axhline(y=100, color="#555", linewidth=0.5, linestyle="--")
 
     plt.tight_layout()
-    plt.savefig("viz_03_event_closeup.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_03_event_closeup.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_03_event_closeup.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_03_event_closeup.png")
 
 
 # ─── 4. Correlation heatmap during key periods ──────────────────────────
@@ -264,9 +265,9 @@ def plot_correlation_heatmaps(df: pd.DataFrame) -> None:
     fig.colorbar(im, ax=axes, shrink=0.4, label="Pearson Correlation")
     plt.suptitle("Stock Return Correlations Across Market Regimes", fontsize=14, fontweight="bold", y=1.01)
     plt.tight_layout()
-    plt.savefig("viz_04_correlation_heatmaps.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_04_correlation_heatmaps.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_04_correlation_heatmaps.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_04_correlation_heatmaps.png")
 
 
 # ─── 5. Tech stocks during COVID crash (Feb-Mar 2020) ────────────────────
@@ -303,9 +304,9 @@ def plot_covid_crash(df: pd.DataFrame) -> None:
     ax.axhline(y=0, color="#555", linewidth=0.5)
 
     plt.tight_layout()
-    plt.savefig("viz_05_covid_crash.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_05_covid_crash.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_05_covid_crash.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_05_covid_crash.png")
 
 
 # ─── 6. AI Explosion (2023-2025) ────────────────────────────────────────
@@ -350,9 +351,9 @@ def plot_ai_explosion(df: pd.DataFrame) -> None:
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("viz_06_ai_explosion.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_06_ai_explosion.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_06_ai_explosion.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_06_ai_explosion.png")
 
 
 # ─── 7. Volume & volatility signatures during crashes ───────────────────
@@ -396,9 +397,9 @@ def plot_volatility_signatures(df: pd.DataFrame) -> None:
         _format_xaxis(a)
 
     plt.tight_layout()
-    plt.savefig("viz_07_volatility_signatures.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_07_volatility_signatures.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_07_volatility_signatures.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_07_volatility_signatures.png")
 
 
 # ─── 8. Summary statistics table ────────────────────────────────────────
@@ -450,9 +451,9 @@ def plot_summary_table(df: pd.DataFrame) -> None:
 
     ax.set_title("Key Ticker Summary Statistics", fontsize=14, fontweight="bold", pad=20)
     plt.tight_layout()
-    plt.savefig("viz_08_summary_table.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_08_summary_table.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_08_summary_table.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_08_summary_table.png")
 
 
 # ─── 9. Predicted vs Actual scatter ─────────────────────────────────────
@@ -479,9 +480,9 @@ def plot_pred_vs_actual(pred_df: pd.DataFrame) -> None:
             bbox=dict(boxstyle="round", facecolor="#2a2a2a", edgecolor="#333"))
 
     plt.tight_layout()
-    plt.savefig("viz_09_pred_vs_actual.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_09_pred_vs_actual.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_09_pred_vs_actual.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_09_pred_vs_actual.png")
 
 
 # ─── 10. Per-ticker MAPE bar chart ──────────────────────────────────────
@@ -503,9 +504,9 @@ def plot_ticker_mape(tm_df: pd.DataFrame, top_n: int = 30) -> None:
                 f"{val:.2f}%", va="center", fontsize=7, color="#ccc")
 
     plt.tight_layout()
-    plt.savefig("viz_10_ticker_mape.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_10_ticker_mape.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_10_ticker_mape.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_10_ticker_mape.png")
 
 
 # ─── 11. Error distribution ────────────────────────────────────────────
@@ -532,9 +533,9 @@ def plot_error_distribution(pred_df: pd.DataFrame) -> None:
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("viz_11_error_distribution.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_11_error_distribution.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_11_error_distribution.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_11_error_distribution.png")
 
 
 # ─── 12. Prediction time series for key tickers ─────────────────────────
@@ -563,9 +564,9 @@ def plot_prediction_timeseries(pred_df: pd.DataFrame, df: pd.DataFrame) -> None:
 
     axes[-1].set_xlabel("Prediction Step")
     plt.tight_layout()
-    plt.savefig("viz_12_prediction_timeseries.png", dpi=150, bbox_inches="tight")
+    plt.savefig(f"{OUTPUT_DIR}/viz_12_prediction_timeseries.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  [OK] viz_12_prediction_timeseries.png")
+    print(f"  [OK] {OUTPUT_DIR}/viz_12_prediction_timeseries.png")
 
 
 if __name__ == "__main__":
@@ -577,8 +578,8 @@ if __name__ == "__main__":
     print(f"  {len(df)} rows, {df['Ticker'].nunique()} tickers, {df['Date'].min():%Y-%m-%d} to {df['Date'].max():%Y-%m-%d}")
 
     print("\nLoading model predictions...")
-    pred_df = pd.read_csv("predictions.csv")
-    tm_df = pd.read_csv("ticker_metrics.csv")
+    pred_df = pd.read_csv(f"{OUTPUT_DIR}/predictions.csv")
+    tm_df = pd.read_csv(f"{OUTPUT_DIR}/ticker_metrics.csv")
     print(f"  {len(pred_df)} prediction rows, {tm_df['Ticker'].nunique()} tickers")
 
     print("\nGenerating visualizations...")

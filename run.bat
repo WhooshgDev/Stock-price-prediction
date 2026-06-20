@@ -1,10 +1,10 @@
 @echo off
 cd /d D:\Stock-price-prediction
 echo [Training]
-python tft.py
+python scripts/tft.py
 echo.
 echo [Evaluation]
-python eval.py
+python scripts/eval.py
 echo.
 echo Done!
 pause

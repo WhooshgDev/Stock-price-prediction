@@ -14,6 +14,8 @@ from pytorch_forecasting.data import NaNLabelEncoder
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pytorch_forecasting")
 
+OUTPUT_DIR = "outputs"
+
 from tft import (
     DATA_PATH, ENCODER_LENGTH, PREDICTION_LENGTH, BATCH_SIZE,
     load_and_preprocess, create_datasets, _worker_init_fn,
@@ -74,9 +76,10 @@ def main():
         print(f"  {k:25s}: {v:.4f}")
     print(f"{'='*50}\n")
 
-    with open("metrics.json", "w") as f:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(f"{OUTPUT_DIR}/metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
-    print("  metrics.json saved")
+    print(f"  {OUTPUT_DIR}/metrics.json saved")
 
     ticker_encoder = training._categorical_encoders["__group_id__Ticker"]
     ticker_map = {i: name for name, i in ticker_encoder.classes_.items()}
@@ -94,8 +97,8 @@ def main():
             })
 
     pred_df = pd.DataFrame(rows)
-    pred_df.to_csv("predictions.csv", index=False)
-    print(f"  predictions.csv saved ({len(pred_df)} rows)")
+    pred_df.to_csv(f"{OUTPUT_DIR}/predictions.csv", index=False)
+    print(f"  {OUTPUT_DIR}/predictions.csv saved ({len(pred_df)} rows)")
 
     print("\nPer-ticker directional accuracy:")
     ticker_metrics = []
@@ -106,8 +109,8 @@ def main():
         ticker_metrics.append({"Ticker": ticker, "Directional_Accuracy": round(acc, 2)})
 
     tm_df = pd.DataFrame(ticker_metrics).sort_values("Directional_Accuracy", ascending=False)
-    tm_df.to_csv("ticker_metrics.csv", index=False)
-    print(f"  ticker_metrics.csv saved")
+    tm_df.to_csv(f"{OUTPUT_DIR}/ticker_metrics.csv", index=False)
+    print(f"  {OUTPUT_DIR}/ticker_metrics.csv saved")
 
     print("\nTop 5:")
     print(tm_df.head(5).to_string(index=False))

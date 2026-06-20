@@ -29,7 +29,8 @@ def _worker_init_fn(worker_id: int) -> None:
     logging.getLogger("torch.utils.flop_counter").setLevel(logging.ERROR)
 
 
-DATA_PATH = "World-Stock-Prices-Dataset.csv"
+OUTPUT_DIR = "outputs"
+DATA_PATH = "data/World-Stock-Prices-Dataset.csv"
 MAX_EPOCHS = 30
 BATCH_SIZE = 256
 HIDDEN_SIZE = 128
@@ -208,9 +209,10 @@ def evaluate_model(
         print(f"  {k:25s}: {v:.4f}")
     print(f"{'='*50}\n")
 
-    with open("metrics.json", "w") as f:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(f"{OUTPUT_DIR}/metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
-    print("  metrics.json saved")
+    print(f"  {OUTPUT_DIR}/metrics.json saved")
 
     ticker_encoder = validation._categorical_encoders["__group_id__Ticker"]
     ticker_map = {i: name for name, i in ticker_encoder.classes_.items()}
@@ -228,8 +230,8 @@ def evaluate_model(
             })
 
     pred_df = pd.DataFrame(rows)
-    pred_df.to_csv("predictions.csv", index=False)
-    print(f"  predictions.csv saved ({len(pred_df)} rows)")
+    pred_df.to_csv(f"{OUTPUT_DIR}/predictions.csv", index=False)
+    print(f"  {OUTPUT_DIR}/predictions.csv saved ({len(pred_df)} rows)")
 
     print("\nPer-ticker directional accuracy:")
     ticker_metrics = []
@@ -243,8 +245,8 @@ def evaluate_model(
         })
 
     tm_df = pd.DataFrame(ticker_metrics).sort_values("Directional_Accuracy", ascending=False)
-    tm_df.to_csv("ticker_metrics.csv", index=False)
-    print(f"  ticker_metrics.csv saved")
+    tm_df.to_csv(f"{OUTPUT_DIR}/ticker_metrics.csv", index=False)
+    print(f"  {OUTPUT_DIR}/ticker_metrics.csv saved")
 
     print("\nTop 5 (by directional accuracy):")
     print(tm_df.head(5).to_string(index=False))
@@ -277,7 +279,8 @@ def main():
     lr_logger = LearningRateMonitor()
     checkpoint = ModelCheckpoint(monitor="val_loss", mode="min", save_top_k=1, save_last=True, filename="tft-{epoch:02d}-{val_loss:.4f}")
 
-    last_ckpt = "tft_last.ckpt" if os.path.exists("tft_last.ckpt") else None
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    last_ckpt = f"{OUTPUT_DIR}/tft_last.ckpt" if os.path.exists(f"{OUTPUT_DIR}/tft_last.ckpt") else None
 
     trainer = Trainer(
         max_epochs=MAX_EPOCHS,
@@ -295,8 +298,8 @@ def main():
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=val_dl, ckpt_path=last_ckpt)
 
     print(f"     Best model: {checkpoint.best_model_path}")
-    trainer.save_checkpoint("tft_last.ckpt")
-    print("     tft_last.ckpt saved (for resume)")
+    trainer.save_checkpoint(f"{OUTPUT_DIR}/tft_last.ckpt")
+    print(f"     {OUTPUT_DIR}/tft_last.ckpt saved (for resume)")
 
     print("\n[5/5] Evaluating on validation set...")
     pred_df = evaluate_model(model, validation)
