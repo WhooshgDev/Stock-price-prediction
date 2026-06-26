@@ -1,10 +1,13 @@
 @echo off
 cd /d D:\Stock-price-prediction
-echo [Training]
-python scripts/tft.py
+echo [TFT Training]
+python demo/tft/model.py
 echo.
-echo [Evaluation]
-python scripts/eval.py
+echo [TFT Evaluation]
+python demo/tft/eval.py
+echo.
+echo [Launching Demo App]
+start streamlit run demo/app.py
 echo.
 echo Done!
 pause

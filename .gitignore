@@ -1,10 +1,36 @@
+# Everything outside demo/ is legacy
+STOCK_MARKET_DATA_ANALYSIS.ipynb
+backtest_equity.png
+backtest_summary.csv
+backtest_trades.csv
+checkpoints/
+data/
+images/
+lightning_logs/
+models/
+outputs/
+report/
+run.bat
+scripts/
+section_4_methodology.md
+tft/
+ticker_metrics.csv
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
-.lr_find_*.ckpt
-lightning_logs/
-outputs/
-*.png
-*.csv
-!data/World-Stock-Prices-Dataset.csv
-.DS_Store
+*.egg-info/
+.env
+.venv/
+venv/
+*.so
+
+# Streamlit
+.streamlit/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
