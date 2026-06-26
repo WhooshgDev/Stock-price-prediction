@@ -1,20 +1,25 @@
-# Everything outside demo/ is legacy
-STOCK_MARKET_DATA_ANALYSIS.ipynb
-backtest_equity.png
-backtest_summary.csv
-backtest_trades.csv
-checkpoints/
-data/
-images/
-lightning_logs/
-models/
-outputs/
-report/
-run.bat
-scripts/
-section_4_methodology.md
-tft/
-ticker_metrics.csv
+# Everything outside demo/ is legacy (anchored to root with /)
+/STOCK_MARKET_DATA_ANALYSIS.ipynb
+/backtest_equity.png
+/backtest_summary.csv
+/backtest_trades.csv
+/checkpoints/
+/data/
+/images/
+/lightning_logs/
+/models/
+/outputs/
+/report/
+/run.bat
+/scripts/
+/section_4_methodology.md
+/tft/
+/ticker_metrics.csv
+
+# Inside demo/, only ignore training artifacts
+demo/lightning_logs/
+demo/tft/lightning_logs/
+demo/tft/outputs/
 
 # Python
 __pycache__/
